@@ -72,9 +72,11 @@
                     for (let i = 0; i < data.t.length; i++) {
                         bars.push({time: data.t[i], open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i]});
                     }
-                    onHistoryCallback(bars, {noData: false});
+                    if (bars.length > 0) {
+                        onHistoryCallback(bars, {noData: false});
+                    }
                 } else if (data.s === "no_data") {
-                    onHistoryCallback([], {noData: false});
+                    // Silently ignore — keep existing chart data
                 } else {
                     onErrorCallback(data.errmsg || "Unknown error");
                 }
