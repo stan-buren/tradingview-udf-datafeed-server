@@ -1,0 +1,23 @@
+# Public-facing reverse proxy deployed on Dell home server
+# Routes tradingview.stan-buren.ru → local UDF server (192.168.0.93:8089)
+# Managed by Traefik (Let's Encrypt via Cloudflare)
+services:
+  tradingview-site:
+    image: nginx:alpine
+    container_name: tradingview-site
+    restart: unless-stopped
+    networks:
+      - proxy
+    volumes:
+      - /mnt/home_server/data/tradingview-site/nginx.conf:/etc/nginx/nginx.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.tradingview-site.entrypoints=websecure"
+      - "traefik.http.routers.tradingview-site.rule=Host(`tradingview.stan-buren.ru`)"
+      - "traefik.http.routers.tradingview-site.tls.certresolver=cloudflare"
+      - "traefik.http.services.tradingview-site.loadbalancer.server.port=80"
+
+networks:
+  proxy:
+    external: true
