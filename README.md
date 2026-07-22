@@ -364,13 +364,13 @@ That's it. No API keys. No configuration. No external dependencies at runtime.
 
 | Port | Path | What |
 |------|------|------|
-| 8088 | `/config` | UDF datafeed capabilities |
-| 8088 | `/search?query=BTC` | Symbol search |
-| 8088 | `/symbols?symbol=BTCUSDT` | Symbol metadata |
-| 8088 | `/history?symbol=BTCUSDT&resolution=60&countback=300` | OHLCV bars |
-| 8088 | `/time` | Server timestamp |
-| 8088 | `/health` | Health check |
-| 8088 | `/demo` | Interactive chart frontend |
+| 8089 | `/config` | UDF datafeed capabilities |
+| 8089 | `/search?query=BTC` | Symbol search |
+| 8089 | `/symbols?symbol=BTCUSDT` | Symbol metadata |
+| 8089 | `/history?symbol=BTCUSDT&resolution=60&countback=300` | OHLCV bars |
+| 8089 | `/time` | Server timestamp |
+| 8089 | `/health` | Health check |
+| 8089 | `/demo` | Interactive chart frontend |
 
 ### Other commands
 
@@ -446,15 +446,6 @@ I was a daily user of the platform and wanted to understand what happens under t
 Building a compliant implementation took focused work: reading the protocol spec, mapping Binance's REST/WebSocket APIs to UDF format, and handling edge cases like market gaps, resolution aliasing, and connection resilience.
 
 The result is a self-contained, documented, testable datafeed server — the same protocol spoken by the charts on Binance, Bybit, and OKX.
-
-<br/>
-
-**Next steps I'm considering:**
-- Multiple exchanges via adapter pattern (Bybit, Kraken)
-- SSE push for real-time (currently polling)
-- `getMarks` for on-chain events and news
-- Full Datafeed API implementation (WebSocket-native)
-- Pine Script-compatible indicator engine
 
 <br/>
 
