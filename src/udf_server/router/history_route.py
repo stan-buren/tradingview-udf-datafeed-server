@@ -64,7 +64,7 @@ async def get_history(
         logger.exception("Failed to fetch klines for %s/%s", symbol, resolution)
         return HistoryResponse.error(str(e)).__dict__
 
-    # For 24/7 crypto markets, no bars → empty "ok", not "no_data"
-    return HistoryResponse.from_bars([]).__dict__
-
+    if not bars:
+        # For 24/7 crypto, no bars → empty "ok", not "no_data"
+        return HistoryResponse.from_bars([]).__dict__
     return HistoryResponse.from_bars(bars).__dict__
