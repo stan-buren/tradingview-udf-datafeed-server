@@ -1,0 +1,58 @@
+# ─── Python bytecode ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+
+# ─── Build & distribution ─────────────────────────────────────
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# ─── Virtual environments ─────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ─── Environment (keep .env.example if you add one) ────────────
+.env
+.env.local
+.env.*.local
+
+# ─── SQLite databases ─────────────────────────────────────────
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.db-journal
+*.db-wal
+
+# ─── IDE & editors ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Test & coverage ──────────────────────────────────────────
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+
+# ─── Lint & format caches ─────────────────────────────────────
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ─── OS junk ──────────────────────────────────────────────────
+Desktop.ini
+
+# ─── AI junk ──────────────────────────────────────────────────
+docs/

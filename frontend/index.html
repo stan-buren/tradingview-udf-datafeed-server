@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradingView UDF Datafeed Demo</title>
+    <script src="lightweight-charts.standalone.production.js"></script>
+    <script>
+    // UDF JavaScript datafeed adapter — connects Lightweight Charts to our UDF server.
+    // Implements the Lightweight Charts datafeed interface:
+    // https://tradingview.github.io/lightweight-charts/docs/api/interfaces/IDatafeedChartApi
+
+    class UDFDatafeed {
+        constructor(baseUrl = "") {
+            this._baseUrl = baseUrl;
+        }
+
+        onReady(callback) {
+            fetch(`${this._baseUrl}/config`)
+                .then(r => r.json())
+                .then(config => { setTimeout(() => callback(config), 0); })
+                .catch(err => {
+                    console.error("UDF onReady failed:", err);
+                    setTimeout(() => callback({
+                        supported_resolutions: ["1","5","15","60","240","1D","1W","1M"],
+                        exchanges: [{value:"Binance",name:"Binance",desc:"Binance Spot"}],
+                        symbols_types: [{name:"crypto",value:"crypto"}],
+                    }), 0);
+                });
+        }
+
+        searchSymbols(userInput, exchange, symbolType, onResultReadyCallback) {
+            fetch(`${this._baseUrl}/search?query=${encodeURIComponent(userInput)}&limit=30`)
+                .then(r => r.json())
+                .then(results => {
+                    onResultReadyCallback(results.map(item => ({
+                        symbol: item.symbol, full_name: item.symbol,
+                        description: item.description, exchange: item.exchange || "Binance",
+                        ticker: item.ticker || item.symbol, type: item.type || "crypto",
+                    })));
+                })
+                .catch(err => { console.error("UDF searchSymbols failed:", err); onResultReadyCallback([]); });
+        }
+
+        resolveSymbol(symbolName, onSymbolResolvedCallback, onResolveErrorCallback) {
+            fetch(`${this._baseUrl}/symbols?symbol=${encodeURIComponent(symbolName)}`)
+                .then(r => { if (!r.ok) throw new Error(`Symbol not found: ${symbolName}`); return r.json(); })
+                .then(si => onSymbolResolvedCallback({
+                    name: si.name, ticker: si.ticker || si.name, description: si.description,
+                    type: si.type || "crypto", session: si.session || "24x7", timezone: si.timezone || "Etc/UTC",
+                    exchange: si.exchange || "Binance", listed_exchange: si.listed_exchange || "Binance",
+                    minmov: si.minmov || 1, pricescale: si.pricescale || 100,
+                    has_intraday: si.has_intraday !== false, has_daily: si.has_daily !== false,
+                    has_weekly_and_monthly: si.has_weekly_and_monthly !== false,
+                    supported_resolutions: si.supported_resolutions || ["1","5","15","60","240","1D","1W","1M"],
+                    intraday_multipliers: si.intraday_multipliers || ["1","5","15","60","240"],
+                    volume_precision: si.volume_precision || 8,
+                    data_status: si.data_status || "streaming", format: si.format || "price",
+                }))
+                .catch(err => { console.error("UDF resolveSymbol failed:", err); onResolveErrorCallback(err.message); });
+        }
+
+        getBars(symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) {
+            const {from, to, countBack} = periodParams;
+            let url = `${this._baseUrl}/history?symbol=${encodeURIComponent(symbolInfo.name)}&resolution=${resolution}&to=${to}`;
+            if (countBack && countBack > 0) url += `&countback=${countBack}`;
+            else if (from && from > 0) url += `&from=${from}`;
+            else url += "&countback=300";
+            fetch(url).then(r => r.json()).then(data => {
+                if (data.s === "ok") {
+                    const bars = [];
+                    for (let i = 0; i < data.t.length; i++) {
+                        bars.push({time: data.t[i], open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i]});
+                    }
+                    onHistoryCallback(bars, {noData: false});
+                } else if (data.s === "no_data") {
+                    onHistoryCallback([], {noData: true, nextTime: data.nextTime});
+                } else {
+                    onErrorCallback(data.errmsg || "Unknown error");
+                }
+            }).catch(err => { console.error("UDF getBars failed:", err); onErrorCallback(err.message); });
+        }
+
+        subscribeBars(symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) {
+            this._pollBars(symbolInfo, resolution, onRealtimeCallback, subscriberUID);
+        }
+
+        unsubscribeBars(subscriberUID) {
+            if (this._pollIntervals && this._pollIntervals[subscriberUID]) {
+                clearInterval(this._pollIntervals[subscriberUID]);
+                delete this._pollIntervals[subscriberUID];
+            }
+        }
+
+        _pollBars(symbolInfo, resolution, callback, uid) {
+            if (!this._pollIntervals) this._pollIntervals = {};
+            this._pollIntervals[uid] = setInterval(() => {
+                const now = Math.floor(Date.now() / 1000);
+                fetch(`${this._baseUrl}/history?symbol=${encodeURIComponent(symbolInfo.name)}&resolution=${resolution}&countback=1&to=${now}`)
+                    .then(r => r.json()).then(data => {
+                        if (data.s === "ok" && data.t.length > 0) {
+                            const i = data.t.length - 1;
+                            callback({time: data.t[i], open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i]});
+                        }
+                    }).catch(() => {});
+            }, 5000);
+        }
+
+        _pollIntervals = {};
+    }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header id="header">
+            <div class="header-left">
+                <h1 class="logo">
+                    <span class="logo-tv">TradingView</span>
+                    <span class="logo-sep">×</span>
+                    <span class="logo-binance">Binance</span>
+                </h1>
+                <span class="subtitle">UDF Protocol Datafeed Demo</span>
+            </div>
+            <div class="header-right">
+                <span id="connection-status" class="status-dot" title="Server status">●</span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <!-- Symbol Search -->
+        <div id="search-bar">
+            <input
+                type="text"
+                id="symbol-input"
+                placeholder="Search symbols... (e.g. BTCUSDT, ETHUSDT)"
+                autocomplete="off"
+            />
+            <div id="search-results" class="hidden"></div>
+        </div>
+
+        <!-- Chart Container -->
+        <div id="chart-container">
+            <div id="chart" style="display:none"></div>
+            <div id="no-symbol" class="placeholder">
+                <div class="placeholder-icon">📊</div>
+                <div class="placeholder-text">Search for a symbol to load the chart</div>
+                <div class="placeholder-hint">Try: BTCUSDT, ETHUSDT, SOLUSDT</div>
+            </div>
+        </div>
+
+        <!-- Info Bar -->
+        <footer id="info-bar">
+            <div class="info-item">
+                <span class="info-label">Server</span>
+                <span class="info-value" id="info-server">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Symbol</span>
+                <span class="info-value" id="info-symbol">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Resolution</span>
+                <select id="resolution-select">
+                    <option value="1">1m</option>
+                    <option value="5">5m</option>
+                    <option value="15">15m</option>
+                    <option value="60" selected>1h</option>
+                    <option value="240">4h</option>
+                    <option value="1D">1D</option>
+                    <option value="1W">1W</option>
+                </select>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Datafeed</span>
+                <span class="info-value">UDF Protocol (REST)</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+    // ─── UDF Datafeed Demo App ──────────────────────────────────
+
+    const BASE_URL = "";  // Same-origin UDF server
+
+    let chart = null;
+    let candleSeries = null;
+    let currentSymbol = null;
+    let currentResolution = "60";
+
+    const datafeed = new UDFDatafeed(BASE_URL);
+
+    // ─── Init ──────────────────────────────────────────────────
+
+    async function init() {
+        // Check server health
+        try {
+            const resp = await fetch("/health");
+            const health = await resp.json();
+            document.getElementById("info-server").textContent =
+                `UDF Server v0.1.0 (${health.symbols_cached} symbols)`;
+            setStatus(true, "Connected");
+        } catch {
+            setStatus(false, "Server offline");
+        }
+
+        // Check LightweightCharts loaded
+        if (typeof LightweightCharts === "undefined") {
+            setStatus(false, "Chart library failed to load");
+            const placeholder = document.getElementById("no-symbol");
+            placeholder.style.display = "flex";
+            placeholder.querySelector(".placeholder-text").textContent =
+                "Chart library failed to load. Check your internet connection.";
+            placeholder.querySelector(".placeholder-hint").textContent =
+                "The library is served locally — if this persists, check browser console (F12).";
+            return;
+        }
+
+        // Create chart
+        try {
+            chart = LightweightCharts.createChart(document.getElementById("chart"), {
+                width: document.getElementById("chart-container").clientWidth,
+                height: document.getElementById("chart-container").clientHeight,
+                layout: {
+                    background: { type: "solid", color: "#131722" },
+                    textColor: "#d1d4dc",
+                },
+                grid: {
+                    vertLines: { color: "rgba(42, 46, 57, 0.5)" },
+                    horzLines: { color: "rgba(42, 46, 57, 0.5)" },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: "rgba(197, 203, 206, 0.3)",
+                },
+                timeScale: {
+                    borderColor: "rgba(197, 203, 206, 0.3)",
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+            });
+
+            candleSeries = chart.addCandlestickSeries({
+                upColor: "#26a69a",
+                downColor: "#ef5350",
+                borderDownColor: "#ef5350",
+                borderUpColor: "#26a69a",
+                wickDownColor: "#ef5350",
+                wickUpColor: "#26a69a",
+            });
+        } catch (e) {
+            console.error("Chart creation failed:", e);
+            setStatus(false, "Chart init error");
+            return;
+        }
+        // Resize handler
+        window.addEventListener("resize", () => {
+            if (chart) {
+                chart.applyOptions({
+                    width: document.getElementById("chart-container").clientWidth,
+                    height: document.getElementById("chart-container").clientHeight,
+                });
+            }
+        });
+
+        // Search input handler
+        setupSearch();
+
+        // Resolution selector
+        document.getElementById("resolution-select").addEventListener("change", (e) => {
+            currentResolution = e.target.value;
+            if (currentSymbol) {
+                loadSymbol(currentSymbol);
+            }
+        });
+    }
+
+    // ─── Status ────────────────────────────────────────────────
+
+    function setStatus(ok, text) {
+        const dot = document.getElementById("connection-status");
+        const txt = document.getElementById("status-text");
+        dot.className = "status-dot " + (ok ? "online" : "offline");
+        txt.textContent = text;
+    }
+
+    // ─── Search ────────────────────────────────────────────────
+
+    function setupSearch() {
+        const input = document.getElementById("symbol-input");
+        const results = document.getElementById("search-results");
+        let debounceTimer = null;
+
+        input.addEventListener("input", () => {
+            clearTimeout(debounceTimer);
+            const query = input.value.trim();
+
+            if (!query || query.length < 1) {
+                results.classList.add("hidden");
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                datafeed.searchSymbols(query, "", "", (items) => {
+                    if (items.length === 0) {
+                        results.innerHTML =
+                            '<div class="search-item no-results">No symbols found</div>';
+                    } else {
+                        results.innerHTML = items
+                            .slice(0, 15)
+                            .map(item =>
+                                `<div class="search-item" data-symbol="${item.symbol}">
+                                    <span class="symbol-name">${item.symbol}</span>
+                                    <span class="symbol-desc">${item.description}</span>
+                                </div>`
+                            )
+                            .join("");
+                    }
+                    results.classList.remove("hidden");
+
+                    // Click handlers
+                    results.querySelectorAll(".search-item").forEach(el => {
+                        el.addEventListener("click", () => {
+                            const symbol = el.dataset.symbol;
+                            input.value = symbol;
+                            results.classList.add("hidden");
+                            loadSymbol(symbol);
+                        });
+                    });
+                });
+            }, 250);
+        });
+
+        // Close search on outside click
+        document.addEventListener("click", (e) => {
+            if (!results.contains(e.target) && e.target !== input) {
+                results.classList.add("hidden");
+            }
+        });
+
+        // Enter key
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                const firstResult = results.querySelector(".search-item");
+                if (firstResult && firstResult.dataset.symbol) {
+                    loadSymbol(firstResult.dataset.symbol);
+                    input.value = firstResult.dataset.symbol;
+                    results.classList.add("hidden");
+                }
+            }
+        });
+    }
+
+    // ─── Load Symbol ───────────────────────────────────────────
+
+    function loadSymbol(symbol) {
+        currentSymbol = symbol.toUpperCase();
+        document.getElementById("info-symbol").textContent = currentSymbol;
+        document.getElementById("no-symbol").style.display = "none";
+        document.getElementById("chart").style.display = "block";
+
+        datafeed.resolveSymbol(
+            currentSymbol,
+            (symbolInfo) => {
+                // Load historical bars
+                const to = Math.floor(Date.now() / 1000);
+                datafeed.getBars(
+                    symbolInfo,
+                    currentResolution,
+                    { from: 0, to, countBack: 300, firstDataRequest: true },
+                    (bars) => {
+                        candleSeries.setData(bars);
+                        chart.timeScale().fitContent();
+                    },
+                    (err) => {
+                        console.error("Failed to load bars:", err);
+                    }
+                );
+
+                // Subscribe to real-time updates
+                const uid = currentSymbol + "_" + currentResolution;
+                datafeed.unsubscribeBars(uid);
+                datafeed.subscribeBars(symbolInfo, currentResolution, (bar) => {
+                    candleSeries.update(bar);
+                }, uid);
+            },
+            (err) => {
+                console.error("Failed to resolve symbol:", err);
+                document.getElementById("no-symbol").style.display = "flex";
+                document.getElementById("no-symbol").querySelector(".placeholder-text").textContent =
+                    `Symbol not found: ${currentSymbol}`;
+            }
+        );
+    }
+
+    // ─── Boot ──────────────────────────────────────────────────
+
+    document.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+</html>

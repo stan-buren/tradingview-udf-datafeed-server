@@ -1,0 +1,30 @@
+# ─── TradingView UDF Server · Docker Compose ──────
+
+version: "3.9"
+
+services:
+  udf-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: udf-server
+    ports:
+      - "8088:8088"
+    volumes:
+      # Persist SQLite symbol cache across restarts
+      - udf_data:/app/data
+    environment:
+      - UDF_PORT=8088
+      - BINANCE_REST_URL=https://api.binance.com
+      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8088/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  udf_data:
+    driver: local

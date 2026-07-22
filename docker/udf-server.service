@@ -1,0 +1,29 @@
+# TradingView UDF Server systemd service
+# Install: sudo cp udf-server.service /etc/systemd/system/
+# Enable:  sudo systemctl enable --now udf-server
+
+[Unit]
+Description=TradingView UDF Datafeed Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=donald_trump
+Group=donald_trump
+WorkingDirectory=/home/donald_trump/developer/tradingview
+Environment="PATH=/home/donald_trump/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/donald_trump/.local/bin/uv run uvicorn src.udf_server.main:app --host 0.0.0.0 --port 8088 --workers 2
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/donald_trump/developer/tradingview/data
+
+[Install]
+WantedBy=multi-user.target

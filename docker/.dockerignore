@@ -1,0 +1,18 @@
+# Ignore everything in docker build context except what's needed
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.git
+.gitignore
+.python-version
+*.md
+justfile
+tests/
+docs/
+data/
+.venv
+.ruff_cache
+.pytest_cache
+htmlcov
+dist
+*.egg-info
