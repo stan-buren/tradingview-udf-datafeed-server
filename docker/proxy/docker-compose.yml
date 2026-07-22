@@ -9,7 +9,7 @@ services:
     networks:
       - proxy
     volumes:
-      - /mnt/home_server/data/tradingview-site/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"

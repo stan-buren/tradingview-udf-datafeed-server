@@ -64,8 +64,7 @@ async def get_history(
         logger.exception("Failed to fetch klines for %s/%s", symbol, resolution)
         return HistoryResponse.error(str(e)).__dict__
 
-    if not bars:
-        # No data in this range — return nextTime hint
-        return HistoryResponse.no_data(next_time=to if to > 0 else None).__dict__
+    # For 24/7 crypto markets, no bars → empty "ok", not "no_data"
+    return HistoryResponse.from_bars([]).__dict__
 
     return HistoryResponse.from_bars(bars).__dict__

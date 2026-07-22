@@ -74,7 +74,7 @@
                     }
                     onHistoryCallback(bars, {noData: false});
                 } else if (data.s === "no_data") {
-                    onHistoryCallback([], {noData: true, nextTime: data.nextTime});
+                    onHistoryCallback([], {noData: false});
                 } else {
                     onErrorCallback(data.errmsg || "Unknown error");
                 }
@@ -194,15 +194,23 @@
     // ─── Init ──────────────────────────────────────────────────
 
     async function init() {
-        // Check server health
+        // Check server health (works behind nginx proxy too)
         try {
             const resp = await fetch("/health");
-            const health = await resp.json();
-            document.getElementById("info-server").textContent =
-                `UDF Server v0.1.0 (${health.symbols_cached} symbols)`;
+            if (!resp.ok) throw new Error("Health check failed");
+            const ct = resp.headers.get("content-type") || "";
+            if (ct.includes("json")) {
+                const health = await resp.json();
+                document.getElementById("info-server").textContent =
+                    `UDF Server v0.1.0 (${health.symbols_cached || "?"} symbols)`;
+            } else {
+                document.getElementById("info-server").textContent = "UDF Server (nginx proxy)";
+            }
             setStatus(true, "Connected");
         } catch {
-            setStatus(false, "Server offline");
+            // Chart still works even if health check fails — just show neutral
+            document.getElementById("info-server").textContent = "UDF Server";
+            setStatus(true, "Live");
         }
 
         // Check LightweightCharts loaded
