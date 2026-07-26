@@ -27,7 +27,8 @@ async def search_symbols(
 
     # ─── Energy search ────────────────────────────────────────
     energy = request.app.state.energy
-    for es in energy.search_symbols(query, limit=10):
+    energy_limit = limit if type == "energy" else 10
+    for es in energy.search_symbols(query, limit=energy_limit):
         if type and type != "energy":
             continue
         results.append(SearchResultItem(

@@ -68,7 +68,7 @@ class UDFDatafeed {
 </header>
 <div id="search-bar">
     <div id="energy-controls" style="display:none">
-        <select id="zone-select" class="energy-selector"><option value="">— Zone —</option></select>
+        <div id="zone-select-container" class="zone-scroll" data-value=""></div>
         <select id="contract-select" class="energy-selector"><option value="Day-ahead">Day-ahead</option><option value="Intraday">Intraday</option></select>
         <button id="energy-load-btn" class="load-btn">Load</button>
     </div>
@@ -134,18 +134,24 @@ async function switchMode() {
 }
 
 async function loadEnergyZones() {
-    const sel=document.getElementById("zone-select"); sel.innerHTML='<option value="">Loading…</option>';
+    const ctr=document.getElementById("zone-select-container"); ctr.innerHTML='<div class="loading-zones">Loading…</div>';
     try {
         const r=await fetch("/search?query=&type=energy&limit=200"), d=await r.json();
         const zones=new Map();
         for (const i of d) { const c=i.symbol.split(":")[0]; if (!zones.has(c)) zones.set(c,i.description.split(" — ")[0]||c); }
-        sel.innerHTML='<option value="">— Select Zone —</option>';
-        [...zones.entries()].sort((a,b)=>a[1].localeCompare(b[1])).forEach(([code,name])=>{const o=document.createElement("option");o.value=code;o.textContent=name;sel.appendChild(o)});
-    } catch { sel.innerHTML='<option value="">Failed</option>'; }
+        if (zones.size===0) { ctr.innerHTML='<div class="no-zones">No zones</div>'; return; }
+        ctr.innerHTML='';
+        [...zones.entries()].sort((a,b)=>a[1].localeCompare(b[1])).forEach(([code,name])=>{
+            const b=document.createElement("button"); b.className="zone-btn"; b.textContent=name; b.dataset.code=code;
+            b.addEventListener("click",()=>{ctr.querySelectorAll(".zone-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");ctr.dataset.value=code});
+            ctr.appendChild(b);
+        });
+        const first=ctr.querySelector(".zone-btn"); if(first){first.classList.add("active");ctr.dataset.value=first.dataset.code;}
+    } catch { ctr.innerHTML='<div class="no-zones">Failed</div>'; }
 }
 
 function loadEnergySymbol() {
-    const z=document.getElementById("zone-select").value, ct=document.getElementById("contract-select").value;
+    const z=document.getElementById("zone-select-container").dataset.value, ct=document.getElementById("contract-select").value;
     if (!z) return;
     loadSymbol(z+":"+(ct==="Day-ahead"?"DA":"ID"));
 }
