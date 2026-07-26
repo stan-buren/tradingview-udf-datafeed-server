@@ -1,4 +1,7 @@
-"""GET /search — symbol search endpoint."""
+"""GET /search — symbol search endpoint.
+
+Supports both Binance crypto and ENTSO-E energy symbols.
+"""
 
 from __future__ import annotations
 
@@ -14,39 +17,43 @@ router = APIRouter(tags=["UDF"])
 async def search_symbols(
     request: Request,
     query: str = Query(default="", description="Search query"),
-    type: str = Query(default="", description="Symbol type filter"),
+    type: str = Query(default="", description="Symbol type filter (crypto/energy)"),
     exchange: str = Query(default="", description="Exchange filter"),
     limit: int = Query(default=30, description="Max results"),
 ) -> list[dict]:
-    """Search for symbols matching the query.
-
-    Called as user types in the chart's symbol search box.
-    Returns array of SearchResultItem objects.
-    """
-    store = request.app.state.symbol_store
+    """Search symbols across Binance + Energy."""
     limit = min(limit, SYMBOL_SEARCH_LIMIT)
-
-    rows = await store.search_symbols(query, limit=limit)
-
     results: list[dict] = []
-    for row in rows:
-        symbol = row["symbol"]
-        base = row.get("base_asset", symbol.replace("USDT", ""))
-        item = SearchResultItem(
-            symbol=symbol,
-            full_name=symbol,
-            description=f"{base} / TetherUS",
-            exchange=row.get("quote_asset", "Binance"),
-            ticker=symbol,
-            type="crypto",
-        )
 
-        # Apply optional filters
-        if type and item.type != type:
+    # ─── Energy search ────────────────────────────────────────
+    energy = request.app.state.energy
+    for es in energy.search_symbols(query, limit=10):
+        if type and type != "energy":
             continue
-        if exchange and item.exchange != exchange:
-            continue
+        results.append(SearchResultItem(
+            symbol=es.symbol,
+            full_name=es.symbol,
+            description=f"{es.display_name} — {es.contract_type}",
+            exchange="ENTSO-E",
+            ticker=es.symbol,
+            type="energy",
+        ).model_dump())
 
-        results.append(item.model_dump())
+    # ─── Binance search ───────────────────────────────────────
+    if not type or type == "crypto":
+        store = request.app.state.symbol_store
+        rows = await store.search_symbols(query, limit=max(5, limit - len(results)))
+        for row in rows:
+            symbol = row["symbol"]
+            base = row.get("base_asset", symbol.replace("USDT", ""))
+            item = SearchResultItem(
+                symbol=symbol,
+                full_name=symbol,
+                description=f"{base} / TetherUS",
+                exchange=row.get("quote_asset", "Binance"),
+                ticker=symbol,
+                type="crypto",
+            )
+            results.append(item.model_dump())
 
-    return results
+    return results[:limit]

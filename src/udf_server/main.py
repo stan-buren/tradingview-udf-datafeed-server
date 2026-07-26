@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.udf_server.adapter.binance_rest import BinanceRestAdapter
 from src.udf_server.adapter.binance_ws import BinanceWsAdapter
+from src.udf_server.adapter.energy_duckdb import EnergyAdapter
 from src.udf_server.cache.bar_cache import BarCache
 from src.udf_server.cache.symbol_store import SymbolStore
 from src.udf_server import config
@@ -58,6 +59,11 @@ async def lifespan(app: FastAPI):
     app.state.binance_ws = BinanceWsAdapter()
     await app.state.binance_ws.start()
 
+    # Initialize Energy adapter (DuckDB + Iceberg Parquet)
+    app.state.energy = EnergyAdapter()
+    app.state.energy.load_symbols()
+    logger.info("Energy adapter ready (%d symbols)", len(app.state.energy.load_symbols()))
+
     logger.info("UDF server ready on %s:%d", config.UDF_HOST, config.UDF_PORT)
 
     yield
@@ -67,6 +73,7 @@ async def lifespan(app: FastAPI):
     await app.state.binance_ws.stop()
     await app.state.binance_rest.__aexit__(None, None, None)
     await app.state.symbol_store.__aexit__(None, None, None)
+    app.state.energy.close()
     logger.info("Shutdown complete")
 
 

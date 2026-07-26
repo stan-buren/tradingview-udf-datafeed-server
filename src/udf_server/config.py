@@ -101,3 +101,12 @@ BAR_CACHE_MAX_BARS: int = _env_int("BAR_CACHE_MAX_BARS", 2000)
 # ═══════════════════════════════════════════════════════════════════
 
 FRONTEND_DIR: str = _env("FRONTEND_DIR", "")
+
+# ═══════════════════════════════════════════════════════════════════
+# ENTSO-E Energy Data (DuckDB adapter)
+# ═══════════════════════════════════════════════════════════════════
+
+S3_ENDPOINT: str = _env("S3_ENDPOINT", "192.168.0.93:8333")
+S3_ACCESS_KEY: str = _env("S3_ACCESS_KEY", "")
+S3_SECRET_KEY: str = _env("S3_SECRET_KEY", "")
+S3_BUCKET: str = _env("S3_BUCKET", "lakehouse-tables")

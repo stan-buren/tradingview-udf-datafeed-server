@@ -32,9 +32,15 @@ async def get_config(request: Request) -> dict:
                 name="Binance",
                 desc="Binance Spot",
             ),
+            Exchange(
+                value="ENTSO-E",
+                name="ENTSO-E",
+                desc="European Energy Prices",
+            ),
         ],
         symbols_types=[
             SymbolType(name="crypto", value="crypto"),
+            SymbolType(name="energy", value="energy"),
         ],
         intraday_multipliers=INTRADAY_MULTIPLIERS,
     )

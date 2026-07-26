@@ -230,3 +230,63 @@ body {
 #resolution-select:focus {
     border-color: #2962ff;
 }
+
+/* ─── Mode Switcher ──────────────────────────────────── */
+
+.mode-switcher {
+    background: #2a2e39;
+    border: 1px solid #3a3e4a;
+    border-radius: 4px;
+    color: #d1d4dc;
+    font-size: 12px;
+    padding: 4px 10px;
+    outline: none;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+.mode-switcher:focus {
+    border-color: #2962ff;
+}
+
+.logo-energy { color: #26a69a; }
+
+/* ─── Energy Controls ────────────────────────────────── */
+
+#energy-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.energy-selector {
+    background: #2a2e39;
+    border: 1px solid #3a3e4a;
+    border-radius: 6px;
+    color: #d1d4dc;
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.energy-selector:focus {
+    border-color: #26a69a;
+}
+
+.load-btn {
+    background: #26a69a;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.load-btn:hover {
+    background: #1e8e82;
+}

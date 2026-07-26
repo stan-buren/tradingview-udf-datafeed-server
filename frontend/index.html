@@ -3,43 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradingView UDF Datafeed Demo</title>
+    <title>TradingView UDF Datafeed — Binance &amp; Energy</title>
     <script src="lightweight-charts.standalone.production.js"></script>
     <script>
     // UDF JavaScript datafeed adapter — connects Lightweight Charts to our UDF server.
-    // Implements the Lightweight Charts datafeed interface:
-    // https://tradingview.github.io/lightweight-charts/docs/api/interfaces/IDatafeedChartApi
-
     class UDFDatafeed {
-        constructor(baseUrl = "") {
-            this._baseUrl = baseUrl;
-        }
+        constructor(baseUrl = "") { this._baseUrl = baseUrl; }
 
         onReady(callback) {
-            fetch(`${this._baseUrl}/config`)
-                .then(r => r.json())
-                .then(config => { setTimeout(() => callback(config), 0); })
-                .catch(err => {
-                    console.error("UDF onReady failed:", err);
-                    setTimeout(() => callback({
-                        supported_resolutions: ["1","5","15","60","240","1D","1W","1M"],
-                        exchanges: [{value:"Binance",name:"Binance",desc:"Binance Spot"}],
-                        symbols_types: [{name:"crypto",value:"crypto"}],
-                    }), 0);
-                });
+            fetch(`${this._baseUrl}/config`).then(r => r.json()).then(config => {
+                setTimeout(() => callback(config), 0);
+            }).catch(err => {
+                console.error("UDF onReady failed:", err);
+                setTimeout(() => callback({
+                    supported_resolutions: ["1","5","15","60","240","1D","1W","1M"],
+                    exchanges: [{value:"Binance",name:"Binance",desc:"Binance Spot"}],
+                    symbols_types: [{name:"crypto",value:"crypto"}],
+                }), 0);
+            });
         }
 
         searchSymbols(userInput, exchange, symbolType, onResultReadyCallback) {
-            fetch(`${this._baseUrl}/search?query=${encodeURIComponent(userInput)}&limit=30`)
-                .then(r => r.json())
-                .then(results => {
-                    onResultReadyCallback(results.map(item => ({
-                        symbol: item.symbol, full_name: item.symbol,
-                        description: item.description, exchange: item.exchange || "Binance",
-                        ticker: item.ticker || item.symbol, type: item.type || "crypto",
-                    })));
-                })
-                .catch(err => { console.error("UDF searchSymbols failed:", err); onResultReadyCallback([]); });
+            let url = `${this._baseUrl}/search?query=${encodeURIComponent(userInput)}&limit=30`;
+            if (symbolType) url += `&type=${encodeURIComponent(symbolType)}`;
+            fetch(url).then(r => r.json()).then(results => {
+                onResultReadyCallback(results.map(item => ({
+                    symbol: item.symbol, full_name: item.symbol,
+                    description: item.description, exchange: item.exchange || "Binance",
+                    ticker: item.ticker || item.symbol, type: item.type || "crypto",
+                })));
+            }).catch(err => { console.error("UDF searchSymbols failed:", err); onResultReadyCallback([]); });
         }
 
         resolveSymbol(symbolName, onSymbolResolvedCallback, onResolveErrorCallback) {
@@ -72,9 +65,7 @@
                     for (let i = 0; i < data.t.length; i++) {
                         bars.push({time: data.t[i], open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i]});
                     }
-                    if (bars.length > 0) {
-                        onHistoryCallback(bars, {noData: false});
-                    }
+                    if (bars.length > 0) onHistoryCallback(bars, {noData: false});
                 } else if (data.s === "no_data") {
                     // Silently ignore — keep existing chart data
                 } else {
@@ -96,6 +87,8 @@
 
         _pollBars(symbolInfo, resolution, callback, uid) {
             if (!this._pollIntervals) this._pollIntervals = {};
+            // Energy data is historical — poll every 60s. Crypto polls every 5s.
+            const interval = symbolInfo.type === "energy" ? 60000 : 5000;
             this._pollIntervals[uid] = setInterval(() => {
                 const now = Math.floor(Date.now() / 1000);
                 fetch(`${this._baseUrl}/history?symbol=${encodeURIComponent(symbolInfo.name)}&resolution=${resolution}&countback=1&to=${now}`)
@@ -105,7 +98,7 @@
                             callback({time: data.t[i], open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i]});
                         }
                     }).catch(() => {});
-            }, 5000);
+            }, interval);
         }
 
         _pollIntervals = {};
@@ -121,11 +114,16 @@
                 <h1 class="logo">
                     <span class="logo-tv">TradingView</span>
                     <span class="logo-sep">×</span>
-                    <span class="logo-binance">Binance</span>
+                    <span id="logo-mode-text" class="logo-binance">Binance</span>
                 </h1>
                 <span class="subtitle">UDF Protocol Datafeed Demo</span>
             </div>
             <div class="header-right">
+                <!-- Mode Switcher -->
+                <select id="mode-select" class="mode-switcher">
+                    <option value="binance" selected>🔹 Binance (Crypto)</option>
+                    <option value="energy">⚡ Energy (ENTSO-E)</option>
+                </select>
                 <span id="connection-status" class="status-dot" title="Server status">●</span>
                 <span id="status-text">Connecting...</span>
             </div>
@@ -133,13 +131,22 @@
 
         <!-- Symbol Search -->
         <div id="search-bar">
-            <input
-                type="text"
-                id="symbol-input"
-                placeholder="Search symbols... (e.g. BTCUSDT, ETHUSDT)"
-                autocomplete="off"
-            />
-            <div id="search-results" class="hidden"></div>
+            <!-- Energy: zone + contract selectors -->
+            <div id="energy-controls" style="display:none">
+                <select id="zone-select" class="energy-selector">
+                    <option value="">— Select Bidding Zone —</option>
+                </select>
+                <select id="contract-select" class="energy-selector">
+                    <option value="Day-ahead">Day-ahead</option>
+                    <option value="Intraday">Intraday</option>
+                </select>
+                <button id="energy-load-btn" class="load-btn">Load Chart</button>
+            </div>
+            <!-- Binance: text search -->
+            <div id="binance-controls">
+                <input type="text" id="symbol-input" placeholder="Search symbols... (e.g. BTCUSDT, ETHUSDT)" autocomplete="off" />
+                <div id="search-results" class="hidden"></div>
+            </div>
         </div>
 
         <!-- Chart Container -->
@@ -147,16 +154,16 @@
             <div id="chart" style="display:none"></div>
             <div id="no-symbol" class="placeholder">
                 <div class="placeholder-icon">📊</div>
-                <div class="placeholder-text">Search for a symbol to load the chart</div>
-                <div class="placeholder-hint">Try: BTCUSDT, ETHUSDT, SOLUSDT</div>
+                <div class="placeholder-text" id="placeholder-text">Search for a symbol to load the chart</div>
+                <div class="placeholder-hint" id="placeholder-hint">Try: BTCUSDT, ETHUSDT, SOLUSDT</div>
             </div>
         </div>
 
         <!-- Info Bar -->
         <footer id="info-bar">
             <div class="info-item">
-                <span class="info-label">Server</span>
-                <span class="info-value" id="info-server">--</span>
+                <span class="info-label">Mode</span>
+                <span class="info-value" id="info-mode">Binance</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Symbol</span>
@@ -182,114 +189,127 @@
     </div>
 
     <script>
-    // ─── UDF Datafeed Demo App ──────────────────────────────────
-
-    const BASE_URL = "";  // Same-origin UDF server
-
-    let chart = null;
-    let candleSeries = null;
-    let currentSymbol = null;
-    let currentResolution = "60";
-
+    const BASE_URL = "";
+    let chart = null, candleSeries = null;
+    let currentSymbol = null, currentResolution = "60", currentMode = "binance";
     const datafeed = new UDFDatafeed(BASE_URL);
 
     // ─── Init ──────────────────────────────────────────────────
-
     async function init() {
-        // Check server health (works behind nginx proxy too)
         try {
             const resp = await fetch("/health");
-            if (!resp.ok) throw new Error("Health check failed");
-            const ct = resp.headers.get("content-type") || "";
-            if (ct.includes("json")) {
-                const health = await resp.json();
-                document.getElementById("info-server").textContent =
-                    `UDF Server v0.1.0 (${health.symbols_cached || "?"} symbols)`;
-            } else {
-                document.getElementById("info-server").textContent = "UDF Server (nginx proxy)";
+            if (resp.ok) {
+                const health = await resp.json().catch(() => ({}));
+                document.getElementById("info-server") && (
+                    document.getElementById("info-server").textContent =
+                        `UDF Server v0.2.0 (${health.symbols_cached || "?"} symbols)`
+                );
             }
             setStatus(true, "Connected");
-        } catch {
-            // Chart still works even if health check fails — just show neutral
-            document.getElementById("info-server").textContent = "UDF Server";
-            setStatus(true, "Live");
-        }
+        } catch { setStatus(true, "Live"); }
 
-        // Check LightweightCharts loaded
         if (typeof LightweightCharts === "undefined") {
             setStatus(false, "Chart library failed to load");
-            const placeholder = document.getElementById("no-symbol");
-            placeholder.style.display = "flex";
-            placeholder.querySelector(".placeholder-text").textContent =
-                "Chart library failed to load. Check your internet connection.";
-            placeholder.querySelector(".placeholder-hint").textContent =
-                "The library is served locally — if this persists, check browser console (F12).";
             return;
         }
 
-        // Create chart
-        try {
-            chart = LightweightCharts.createChart(document.getElementById("chart"), {
-                width: document.getElementById("chart-container").clientWidth,
-                height: document.getElementById("chart-container").clientHeight,
-                layout: {
-                    background: { type: "solid", color: "#131722" },
-                    textColor: "#d1d4dc",
-                },
-                grid: {
-                    vertLines: { color: "rgba(42, 46, 57, 0.5)" },
-                    horzLines: { color: "rgba(42, 46, 57, 0.5)" },
-                },
-                crosshair: {
-                    mode: LightweightCharts.CrosshairMode.Normal,
-                },
-                rightPriceScale: {
-                    borderColor: "rgba(197, 203, 206, 0.3)",
-                },
-                timeScale: {
-                    borderColor: "rgba(197, 203, 206, 0.3)",
-                    timeVisible: true,
-                    secondsVisible: false,
-                },
-            });
-
-            candleSeries = chart.addCandlestickSeries({
-                upColor: "#26a69a",
-                downColor: "#ef5350",
-                borderDownColor: "#ef5350",
-                borderUpColor: "#26a69a",
-                wickDownColor: "#ef5350",
-                wickUpColor: "#26a69a",
-            });
-        } catch (e) {
-            console.error("Chart creation failed:", e);
-            setStatus(false, "Chart init error");
-            return;
-        }
-        // Resize handler
-        window.addEventListener("resize", () => {
-            if (chart) {
-                chart.applyOptions({
-                    width: document.getElementById("chart-container").clientWidth,
-                    height: document.getElementById("chart-container").clientHeight,
-                });
-            }
+        chart = LightweightCharts.createChart(document.getElementById("chart"), {
+            width: document.getElementById("chart-container").clientWidth,
+            height: document.getElementById("chart-container").clientHeight,
+            layout: { background: { type: "solid", color: "#131722" }, textColor: "#d1d4dc" },
+            grid: { vertLines: { color: "rgba(42, 46, 57, 0.5)" }, horzLines: { color: "rgba(42, 46, 57, 0.5)" } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: { borderColor: "rgba(197, 203, 206, 0.3)" },
+            timeScale: { borderColor: "rgba(197, 203, 206, 0.3)", timeVisible: true, secondsVisible: false },
         });
 
-        // Search input handler
-        setupSearch();
+        candleSeries = chart.addCandlestickSeries({
+            upColor: "#26a69a", downColor: "#ef5350",
+            borderDownColor: "#ef5350", borderUpColor: "#26a69a",
+            wickDownColor: "#ef5350", wickUpColor: "#26a69a",
+        });
 
+        window.addEventListener("resize", () => {
+            if (chart) chart.applyOptions({
+                width: document.getElementById("chart-container").clientWidth,
+                height: document.getElementById("chart-container").clientHeight,
+            });
+        });
+
+        // Mode switcher
+        document.getElementById("mode-select").addEventListener("change", switchMode);
         // Resolution selector
         document.getElementById("resolution-select").addEventListener("change", (e) => {
             currentResolution = e.target.value;
-            if (currentSymbol) {
-                loadSymbol(currentSymbol);
-            }
+            if (currentSymbol) loadSymbol(currentSymbol);
         });
+        // Energy load button
+        document.getElementById("energy-load-btn").addEventListener("click", loadEnergySymbol);
+        // Binance search
+        setupSearch();
+    }
+
+    // ─── Mode Switch ──────────────────────────────────────────
+    async function switchMode() {
+        currentMode = document.getElementById("mode-select").value;
+        document.getElementById("info-mode").textContent = currentMode === "energy" ? "ENTSO-E" : "Binance";
+
+        if (currentMode === "energy") {
+            document.getElementById("binance-controls").style.display = "none";
+            document.getElementById("energy-controls").style.display = "flex";
+            document.getElementById("logo-mode-text").textContent = "ENTSO-E";
+            document.getElementById("logo-mode-text").className = "logo-energy";
+            document.getElementById("placeholder-text").textContent = "Select a bidding zone and contract type";
+            document.getElementById("placeholder-hint").textContent = "Try: DE-LU Day-ahead, FR Intraday";
+            // Load zones from server
+            await loadEnergyZones();
+        } else {
+            document.getElementById("binance-controls").style.display = "block";
+            document.getElementById("energy-controls").style.display = "none";
+            document.getElementById("logo-mode-text").textContent = "Binance";
+            document.getElementById("logo-mode-text").className = "logo-binance";
+            document.getElementById("placeholder-text").textContent = "Search for a symbol to load the chart";
+            document.getElementById("placeholder-hint").textContent = "Try: BTCUSDT, ETHUSDT, SOLUSDT";
+        }
+    }
+
+    // ─── Energy Zone Loading ──────────────────────────────────
+    async function loadEnergyZones() {
+        const select = document.getElementById("zone-select");
+        select.innerHTML = '<option value="">Loading zones...</option>';
+        try {
+            const resp = await fetch("/search?query=&type=energy&limit=200");
+            const data = await resp.json();
+            select.innerHTML = '<option value="">— Select Bidding Zone —</option>';
+            // Parse symbol IDs to extract display names
+            const seen = new Set();
+            for (const item of data) {
+                const parts = item.symbol.split(":");
+                const code = parts[0];
+                const name = item.description.split(" — ")[0];
+                if (!seen.has(code)) {
+                    seen.add(code);
+                    const opt = document.createElement("option");
+                    opt.value = code;
+                    opt.textContent = `${name} (${code.substring(0, 12)}...)`;
+                    select.appendChild(opt);
+                }
+            }
+        } catch (e) {
+            select.innerHTML = '<option value="">Failed to load zones</option>';
+        }
+    }
+
+    function loadEnergySymbol() {
+        const zone = document.getElementById("zone-select").value;
+        const contract = document.getElementById("contract-select").value;
+        if (!zone) return;
+        const suffix = contract === "Day-ahead" ? "DA" : "ID";
+        const symbol = `${zone}:${suffix}`;
+        loadSymbol(symbol);
     }
 
     // ─── Status ────────────────────────────────────────────────
-
     function setStatus(ok, text) {
         const dot = document.getElementById("connection-status");
         const txt = document.getElementById("status-text");
@@ -298,7 +318,6 @@
     }
 
     // ─── Search ────────────────────────────────────────────────
-
     function setupSearch() {
         const input = document.getElementById("symbol-input");
         const results = document.getElementById("search-results");
@@ -307,57 +326,43 @@
         input.addEventListener("input", () => {
             clearTimeout(debounceTimer);
             const query = input.value.trim();
-
-            if (!query || query.length < 1) {
-                results.classList.add("hidden");
-                return;
-            }
+            if (!query || query.length < 1) { results.classList.add("hidden"); return; }
 
             debounceTimer = setTimeout(() => {
                 datafeed.searchSymbols(query, "", "", (items) => {
                     if (items.length === 0) {
-                        results.innerHTML =
-                            '<div class="search-item no-results">No symbols found</div>';
+                        results.innerHTML = '<div class="search-item no-results">No symbols found</div>';
                     } else {
-                        results.innerHTML = items
-                            .slice(0, 15)
-                            .map(item =>
-                                `<div class="search-item" data-symbol="${item.symbol}">
-                                    <span class="symbol-name">${item.symbol}</span>
-                                    <span class="symbol-desc">${item.description}</span>
-                                </div>`
-                            )
-                            .join("");
+                        results.innerHTML = items.slice(0, 15).map(item =>
+                            `<div class="search-item" data-symbol="${item.symbol}">
+                                <span class="symbol-name">${item.symbol}</span>
+                                <span class="symbol-desc">${item.description}</span>
+                            </div>`
+                        ).join("");
                     }
                     results.classList.remove("hidden");
-
-                    // Click handlers
                     results.querySelectorAll(".search-item").forEach(el => {
                         el.addEventListener("click", () => {
-                            const symbol = el.dataset.symbol;
-                            input.value = symbol;
+                            const sym = el.dataset.symbol;
+                            input.value = sym;
                             results.classList.add("hidden");
-                            loadSymbol(symbol);
+                            loadSymbol(sym);
                         });
                     });
                 });
             }, 250);
         });
 
-        // Close search on outside click
         document.addEventListener("click", (e) => {
-            if (!results.contains(e.target) && e.target !== input) {
-                results.classList.add("hidden");
-            }
+            if (!results.contains(e.target) && e.target !== input) results.classList.add("hidden");
         });
 
-        // Enter key
         input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
-                const firstResult = results.querySelector(".search-item");
-                if (firstResult && firstResult.dataset.symbol) {
-                    loadSymbol(firstResult.dataset.symbol);
-                    input.value = firstResult.dataset.symbol;
+                const first = results.querySelector(".search-item");
+                if (first && first.dataset.symbol) {
+                    loadSymbol(first.dataset.symbol);
+                    input.value = first.dataset.symbol;
                     results.classList.add("hidden");
                 }
             }
@@ -365,48 +370,29 @@
     }
 
     // ─── Load Symbol ───────────────────────────────────────────
-
     function loadSymbol(symbol) {
         currentSymbol = symbol.toUpperCase();
         document.getElementById("info-symbol").textContent = currentSymbol;
         document.getElementById("no-symbol").style.display = "none";
         document.getElementById("chart").style.display = "block";
 
-        datafeed.resolveSymbol(
-            currentSymbol,
-            (symbolInfo) => {
-                // Load historical bars
-                const to = Math.floor(Date.now() / 1000);
-                datafeed.getBars(
-                    symbolInfo,
-                    currentResolution,
-                    { from: 0, to, countBack: 300, firstDataRequest: true },
-                    (bars) => {
-                        candleSeries.setData(bars);
-                        chart.timeScale().fitContent();
-                    },
-                    (err) => {
-                        console.error("Failed to load bars:", err);
-                    }
-                );
-
-                // Subscribe to real-time updates
-                const uid = currentSymbol + "_" + currentResolution;
-                datafeed.unsubscribeBars(uid);
-                datafeed.subscribeBars(symbolInfo, currentResolution, (bar) => {
-                    candleSeries.update(bar);
-                }, uid);
-            },
-            (err) => {
-                console.error("Failed to resolve symbol:", err);
-                document.getElementById("no-symbol").style.display = "flex";
-                document.getElementById("no-symbol").querySelector(".placeholder-text").textContent =
-                    `Symbol not found: ${currentSymbol}`;
-            }
-        );
+        datafeed.resolveSymbol(currentSymbol, (symbolInfo) => {
+            const to = Math.floor(Date.now() / 1000);
+            datafeed.getBars(symbolInfo, currentResolution,
+                { from: 0, to, countBack: 300, firstDataRequest: true },
+                (bars) => { candleSeries.setData(bars); chart.timeScale().fitContent(); },
+                (err) => { console.error("Failed to load bars:", err); }
+            );
+            const uid = currentSymbol + "_" + currentResolution;
+            datafeed.unsubscribeBars(uid);
+            datafeed.subscribeBars(symbolInfo, currentResolution, (bar) => { candleSeries.update(bar); }, uid);
+        }, (err) => {
+            console.error("Failed to resolve symbol:", err);
+            document.getElementById("no-symbol").style.display = "flex";
+            document.getElementById("no-symbol").querySelector(".placeholder-text").textContent =
+                `Symbol not found: ${currentSymbol}`;
+        });
     }
-
-    // ─── Boot ──────────────────────────────────────────────────
 
     document.addEventListener("DOMContentLoaded", init);
     </script>

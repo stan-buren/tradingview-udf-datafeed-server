@@ -11,6 +11,9 @@ dependencies = [
     "websockets>=13",
     "aiosqlite>=0.20",
     "pydantic>=2",
+    "duckdb>=1.5.5",
+    "boto3>=1.43.56",
+    "pyarrow>=25.0.0",
 ]
 
 [project.optional-dependencies]
