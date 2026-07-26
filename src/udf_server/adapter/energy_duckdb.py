@@ -197,23 +197,17 @@ class EnergyAdapter:
                 WHERE area_code = '{energy.area_code}'
                   AND contract_type = '{energy.contract_type}'
                   {time_filter}
-            ),
-            bucketed AS (
-                SELECT
-                    {bucket_expr} AS bucket,
-                    price_eur_mwh
-                FROM raw
             )
             SELECT
-                epoch(bucket)::BIGINT AS t,
-                first(price_eur_mwh ORDER BY bucket) AS o,
+                epoch({bucket_expr})::BIGINT AS t,
+                first(price_eur_mwh ORDER BY date_time_utc) AS o,
                 max(price_eur_mwh) AS h,
                 min(price_eur_mwh) AS l,
-                last(price_eur_mwh ORDER BY bucket) AS c,
+                last(price_eur_mwh ORDER BY date_time_utc) AS c,
                 count(*)::DOUBLE AS v
-            FROM bucketed
-            GROUP BY bucket
-            ORDER BY bucket
+            FROM raw
+            GROUP BY t
+            ORDER BY t
         """
 
         if count_back > 0:

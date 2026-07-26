@@ -281,21 +281,27 @@
             const resp = await fetch("/search?query=&type=energy&limit=200");
             const data = await resp.json();
             select.innerHTML = '<option value="">— Select Bidding Zone —</option>';
-            // Parse symbol IDs to extract display names
-            const seen = new Set();
+            // Group by area_code, collect display names
+            const zones = new Map();
             for (const item of data) {
                 const parts = item.symbol.split(":");
                 const code = parts[0];
-                const name = item.description.split(" — ")[0];
-                if (!seen.has(code)) {
-                    seen.add(code);
-                    const opt = document.createElement("option");
-                    opt.value = code;
-                    opt.textContent = `${name} (${code.substring(0, 12)}...)`;
-                    select.appendChild(opt);
+                if (!zones.has(code)) {
+                    const descParts = item.description.split(" — ");
+                    const name = descParts[0] || code;
+                    zones.set(code, name);
                 }
             }
+            // Sort by display name
+            const sorted = [...zones.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+            for (const [code, name] of sorted) {
+                const opt = document.createElement("option");
+                opt.value = code;
+                opt.textContent = name;
+                select.appendChild(opt);
+            }
         } catch (e) {
+            console.error("Failed to load zones:", e);
             select.innerHTML = '<option value="">Failed to load zones</option>';
         }
     }

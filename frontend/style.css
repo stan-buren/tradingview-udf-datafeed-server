@@ -290,3 +290,97 @@ body {
 .load-btn:hover {
     background: #1e8e82;
 }
+
+/* ─── Mobile Responsive ─────────────────────────────── */
+
+@media (max-width: 768px) {
+    #header {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    .header-left {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .logo {
+        font-size: 14px;
+    }
+
+    .subtitle {
+        font-size: 10px;
+    }
+
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .mode-switcher {
+        font-size: 11px;
+        padding: 4px 6px;
+        flex: 1;
+    }
+
+    #search-bar {
+        padding: 6px 10px;
+    }
+
+    #symbol-input {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+
+    #energy-controls {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .energy-selector {
+        font-size: 12px;
+        padding: 8px 10px;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .load-btn {
+        width: 100%;
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    #chart-container {
+        min-height: 60vh;
+    }
+
+    #info-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 4px 10px;
+        font-size: 10px;
+    }
+
+    .info-item {
+        gap: 3px;
+    }
+
+    #resolution-select {
+        font-size: 10px;
+        padding: 2px 4px;
+    }
+
+    .search-item {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo { font-size: 12px; }
+    .mode-switcher { font-size: 10px; }
+    #info-bar { font-size: 9px; gap: 4px; }
+    #chart-container { min-height: 50vh; }
+}
