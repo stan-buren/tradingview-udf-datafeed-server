@@ -81,12 +81,18 @@ class EnergyAdapter:
     def conn(self) -> duckdb.DuckDBPyConnection:
         if self._conn is None:
             self._conn = duckdb.connect(":memory:")
+        try:
+            self._conn.execute("SELECT 1")
+        except Exception:
+            self._conn = duckdb.connect(":memory:")
         return self._conn
 
     # ─── S3 I/O via boto3 ────────────────────────────────────
 
     def _download_parquet_files(self) -> list[Path]:
         """Download Parquet files from S3 to local cache. Returns paths."""
+        if hasattr(self, '_cached_paths') and self._cached_paths:
+            return self._cached_paths
         paths = []
         paginator = self._s3.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=S3_BUCKET, Prefix=_PARQUET_PREFIX):
@@ -99,6 +105,7 @@ class EnergyAdapter:
                     logger.debug("Downloading %s → %s", key, local_path)
                     self._s3.download_file(S3_BUCKET, key, str(local_path))
                 paths.append(local_path)
+        self._cached_paths = paths
         return paths
 
     # ─── Symbol management ────────────────────────────────────
@@ -221,12 +228,18 @@ class EnergyAdapter:
 
         bars: list[Bar] = []
         for row in reversed(rows):  # DESC query → reverse to ascending for chart
+            o, h, l, c = float(row[1]), float(row[2]), float(row[3]), float(row[4])
+            # If flat candle (O=H=L=C), add tiny spread so chart renders candlestick body
+            if abs(h - l) < 0.001:
+                spread = max(abs(o) * 0.001, 0.01)
+                h = o + spread
+                l = o - spread
             bars.append(Bar(
                 time=row[0],
-                open=round(row[1], 2),
-                high=round(row[2], 2),
-                low=round(row[3], 2),
-                close=round(row[4], 2),
+                open=round(o, 2),
+                high=round(h, 2),
+                low=round(l, 2),
+                close=round(c, 2),
                 volume=row[5],
             ))
         return bars
