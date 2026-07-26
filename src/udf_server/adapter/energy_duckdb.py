@@ -207,7 +207,7 @@ class EnergyAdapter:
                 count(*)::DOUBLE AS v
             FROM raw
             GROUP BY t
-            ORDER BY t
+            ORDER BY t DESC
         """
 
         if count_back > 0:
@@ -220,7 +220,7 @@ class EnergyAdapter:
             raise
 
         bars: list[Bar] = []
-        for row in rows:
+        for row in reversed(rows):  # DESC query → reverse to ascending for chart
             bars.append(Bar(
                 time=row[0],
                 open=round(row[1], 2),
