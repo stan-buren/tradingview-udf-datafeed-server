@@ -17,6 +17,8 @@ import boto3
 import duckdb
 
 from src.udf_server.config import (
+    ENERGY_PRICE_MAX,
+    ENERGY_PRICE_MIN,
     S3_ACCESS_KEY,
     S3_BUCKET,
     S3_ENDPOINT,
