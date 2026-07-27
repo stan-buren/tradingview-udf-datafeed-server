@@ -110,3 +110,10 @@ S3_ENDPOINT: str = _env("S3_ENDPOINT", "192.168.0.93:8333")
 S3_ACCESS_KEY: str = _env("S3_ACCESS_KEY", "")
 S3_SECRET_KEY: str = _env("S3_SECRET_KEY", "")
 S3_BUCKET: str = _env("S3_BUCKET", "lakehouse-tables")
+# ═══════════════════════════════════════════════════════════════════
+# ENTSO-E Energy Data — Quality filters
+# ═══════════════════════════════════════════════════════════════════
+
+ENERGY_PRICE_MIN: float = _env_float("ENERGY_PRICE_MIN", -500.0)
+ENERGY_PRICE_MAX: float = _env_float("ENERGY_PRICE_MAX", 3000.0)
+
