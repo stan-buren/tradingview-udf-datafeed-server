@@ -230,7 +230,7 @@ class EnergyAdapter:
                 FROM read_parquet([{file_list}])
                 WHERE area_code = '{energy.area_code}'
                   AND contract_type = '{energy.contract_type}'
-                  AND "price_currency_x2Fm_wh" BETWEEN {ENERGY_PRICE_MIN} AND {ENERGY_PRICE_MAX}
+                  AND "price_currency_x2Fm_wh" BETWEEN -500 AND 3000
                   {time_filter}
             )
             SELECT
