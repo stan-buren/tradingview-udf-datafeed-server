@@ -130,9 +130,34 @@ class EnergyAdapter:
             ORDER BY area_display_name, contract_type
         """).fetchall()
 
+        # Zones with corrupted/sparse data — excluded until data quality is fixed
+        _EXCLUDED_ZONES: set[str] = {
+            "10YAL-KESH-----5",  # Albania — dots
+            "10YBA-JPCC-----D",  # Bosnia Herz. — collapses on scroll
+            "10YHR-HEP------M",  # Croatia — collapses on scroll
+            "10Y1001A1001A82H",  # DE-LU — dots
+            "10YGB----------A",  # Great Britain — dots
+            "10YIT-GRTN-----B",  # Italy North — dots
+            "10YIT-GRTN-----C",  # Italy Centre-North — dots
+            "10YIT-GRTN-----D",  # Italy Centre-South — dots
+            "10YIT-GRTN-----E",  # Italy South — dots
+            "10YIT-GRTN-----F",  # Italy Sardinia — dots
+            "10YIT-GRTN-----G",  # Italy Sicily — dots
+            "10Y1001A1001B00I",  # Kosovo — dots
+            "10YCS-CG-TSO---S",  # Montenegro — dots
+            "10YNO-2--------T",  # Norway NO2 — dots
+            "10YMK-MEPSO----8",  # North Macedonia — dots
+            "10YCS-SERBIATSOV",  # Serbia — dots
+            "10YCH-SWISSGRIDZ",  # Switzerland — dots
+            "10YUA-WEPS-----0",  # Ukraine IPS — broken
+            "10Y1001C--00003F",  # Ukraine Burshtyn — broken
+        }
+
         symbols: list[EnergySymbol] = []
         for row in rows:
             area_code = row[0]
+            if area_code in _EXCLUDED_ZONES:
+                continue
             display_name = row[1] or area_code
             contract = {"Day-ahead": "DA", "Intraday": "ID"}.get(row[2], row[2][:2].upper())
             symbol_id = f"{area_code}:{contract}"
