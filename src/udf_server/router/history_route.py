@@ -7,10 +7,11 @@ Energy symbols use format: AREA_CODE:CONTRACT (e.g. 10Y1001A1001A82H:DA).
 from __future__ import annotations
 
 import logging
+import time as _time
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
-from src.udf_server.adapter.resolution import is_valid_resolution
+from src.udf_server.adapter.resolution import is_valid_resolution, resolution_to_seconds
 from src.udf_server.config import DEFAULT_HISTORY_LIMIT, HISTORY_MAX_LIMIT
 from src.udf_server.models.bar import HistoryResponse
 
@@ -42,6 +43,13 @@ async def get_history(
 
     limit = min(countback if countback > 0 else DEFAULT_HISTORY_LIMIT, HISTORY_MAX_LIMIT)
 
+    # ── Sanity-check time range ────────────────────────────
+    _now = int(_time.time())
+    if from_ > 0 and to > 0 and from_ > to:
+        from_ = to - 86400  # clamp: show last day
+    if to > _now + 86400:
+        to = _now  # cap: don't request data from the far future
+
     # ─── Energy mode ──────────────────────────────────────────
     if _is_energy_symbol(symbol):
         if resolution not in ENERGY_RESOLUTIONS:
@@ -65,9 +73,18 @@ async def get_history(
             logger.exception("Energy query failed for %s/%s", symbol, resolution)
             return HistoryResponse.error(str(e)).__dict__
 
+        next_time = None
+        if bars:
+            try:
+                step = resolution_to_seconds(resolution)
+                next_time = bars[-1].time + step
+            except ValueError:
+                pass
         if not bars:
-            return HistoryResponse.no_data().__dict__
-        return HistoryResponse.from_bars(bars).__dict__
+            return HistoryResponse.no_data(
+                next_time=to if to > 0 else None
+            ).__dict__
+        return HistoryResponse.from_bars(bars, next_time=next_time).__dict__
 
     # ─── Binance mode ─────────────────────────────────────────
     store = request.app.state.symbol_store
@@ -91,6 +108,13 @@ async def get_history(
         logger.exception("Failed to fetch klines for %s/%s", symbol, resolution)
         return HistoryResponse.error(str(e)).__dict__
 
+    next_time = None
+    if bars:
+        try:
+            step = resolution_to_seconds(resolution)
+            next_time = bars[-1].time + step
+        except ValueError:
+            pass
     if not bars:
-        return HistoryResponse.from_bars([]).__dict__
-    return HistoryResponse.from_bars(bars).__dict__
+        return HistoryResponse.from_bars([], next_time=next_time).__dict__
+    return HistoryResponse.from_bars(bars, next_time=next_time).__dict__

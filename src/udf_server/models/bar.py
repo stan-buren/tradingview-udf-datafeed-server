@@ -37,8 +37,15 @@ class HistoryResponse:
     errmsg: str | None = None
 
     @classmethod
-    def from_bars(cls, bars: list[Bar]) -> HistoryResponse:
-        """Convert a list of Bar objects to UDF columnar response."""
+    def from_bars(cls, bars: list[Bar], next_time: int | None = None) -> HistoryResponse:
+        """Convert a list of Bar objects to UDF columnar response.
+
+        Args:
+            bars: OHLCV bars sorted by time ascending.
+            next_time: Timestamp of the next bar after the last one, or None
+                if there is no more data.  Charts use this to know where the
+                data boundary is so they don't collapse when scrolled past it.
+        """
         return cls(
             s="ok",
             t=[b.time for b in bars],
@@ -47,6 +54,7 @@ class HistoryResponse:
             h=[b.high for b in bars],
             l=[b.low for b in bars],
             v=[b.volume for b in bars],
+            nextTime=next_time,
         )
 
     @classmethod

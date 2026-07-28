@@ -33,3 +33,30 @@ def binance_to_udf_resolution(interval: str) -> str:
 def is_valid_resolution(resolution: str) -> bool:
     """Check whether a UDF resolution string is supported."""
     return resolution in RESOLUTION_TO_INTERVAL
+
+
+# ── Resolution → seconds ──────────────────────────────────────
+
+_RESOLUTION_SECONDS: dict[str, int] = {
+    "1": 60,
+    "5": 300,
+    "15": 900,
+    "30": 1800,
+    "60": 3600,
+    "120": 7200,
+    "240": 14400,
+    "360": 21600,
+    "480": 28800,
+    "720": 43200,
+    "1D": 86400,
+    "3D": 259200,
+    "1W": 604800,
+    "1M": 2592000,
+}
+
+
+def resolution_to_seconds(resolution: str) -> int:
+    """Convert a UDF resolution string to duration in seconds."""
+    if resolution not in _RESOLUTION_SECONDS:
+        raise ValueError(f"Unknown resolution: {resolution!r}")
+    return _RESOLUTION_SECONDS[resolution]
