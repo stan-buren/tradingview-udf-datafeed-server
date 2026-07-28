@@ -97,7 +97,7 @@ class UDFDatafeed {
 </div>
 <script>
 const BASE="", R_CRYPTO=["1","5","15","60","240","1D","1W","1M"], R_ENERGY=["15","60","240","1D","1W","1M"];
-let chart=null,series=null,curSym=null,curRes="60",curMode="binance",df=new UDFDatafeed(BASE);
+let chart=null,series=null,curSym=null,curRes="60",curMode="binance",df=new UDFDatafeed(BASE),_activeUid=null;
 
 function _resizeChart() {
     if (!chart) return;
@@ -200,7 +200,8 @@ function loadSymbol(sym) {
         });
         const to=Math.floor(Date.now()/1000);
         df.getBars(si,curRes,{from:0,to,countBack:300,firstDataRequest:true},bars=>{if(bars.length>0){const safe=bars.filter(b=>b.high>0&&b.low>0&&b.high/b.low<100&&b.low/b.high<100);if(safe.length>0){series.setData(safe);chart.timeScale().fitContent();_resizeChart()}}},e=>console.error(e));
-        const uid=curSym+"_"+curRes; df.unsubscribeBars(uid);
+        if (_activeUid) df.unsubscribeBars(_activeUid);
+        const uid=curSym+"_"+curRes; _activeUid=uid;
         df.subscribeBars(si,curRes,bar=>{try{series.update(bar)}catch{}},uid);
     },e=>{console.error(e);document.getElementById("no-symbol").style.display="flex";document.getElementById("no-symbol").querySelector(".placeholder-text").textContent="Not found: "+curSym});
 }
