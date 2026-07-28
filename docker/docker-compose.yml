@@ -1,7 +1,5 @@
 # ─── TradingView UDF Server · Docker Compose ──────
 
-version: "3.9"
-
 services:
   udf-server:
     build:
@@ -15,8 +13,14 @@ services:
       - udf_data:/app/data
     environment:
       - UDF_PORT=8088
+      - UDF_HOST=0.0.0.0
       - BINANCE_REST_URL=https://api.binance.com
       - BINANCE_WS_URL=wss://stream.binance.com:9443/ws
+      # ENTSO-E Energy mode — uncomment and fill in for S3 access:
+      # - S3_ENDPOINT=localhost:8333
+      # - S3_ACCESS_KEY=change-me
+      # - S3_SECRET_KEY=change-me
+      # - S3_BUCKET=lakehouse-tables
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8088/health')"]
