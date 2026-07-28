@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -36,7 +39,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-FRONTEND_DIR = Path(config.FRONTEND_DIR or (Path(__file__).resolve().parent.parent.parent / "frontend").as_posix())
+_project_root = Path(os.environ.get("PROJECT_ROOT", Path(__file__).resolve().parent.parent.parent))
+FRONTEND_DIR = Path(config.FRONTEND_DIR or (_project_root / "frontend").as_posix())
 
 
 @asynccontextmanager
