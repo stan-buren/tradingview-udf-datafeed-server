@@ -25,7 +25,7 @@ async def get_config(request: Request) -> dict:
         supports_search=True,
         supports_group_request=False,
         supports_marks=False,
-        supports_timescale_marks=False,
+        supports_timescale_marks=True,
         exchanges=[
             Exchange(
                 value="Binance",
