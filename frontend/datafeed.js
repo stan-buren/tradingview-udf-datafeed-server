@@ -109,7 +109,7 @@ class UDFDatafeed {
                             volume: data.v[i],
                         });
                     }
-                    onHistoryCallback(bars, { noData: false });
+                    onHistoryCallback(bars, { noData: false, nextTime: data.nextTime });
                 } else if (data.s === "no_data") {
                     onHistoryCallback([], { noData: true, nextTime: data.nextTime });
                 } else {

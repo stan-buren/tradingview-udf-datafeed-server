@@ -34,14 +34,20 @@ class UDFDatafeed {
         else if (from>0) u += `&from=${from}`;
         else u += "&countback=300";
         fetch(u).then(r=>r.json()).then(d=>{
-            if (d.s==="ok" && d.t.length>0) {
-                const bars = [];
-                for (let i=0;i<d.t.length;i++) bars.push({time:d.t[i],open:d.o[i],high:d.h[i],low:d.l[i],close:d.c[i],volume:d.v[i]});
-                ok(bars,{noData:false});
+            if (d.s==="ok") {
+                if (d.t.length>0) {
+                    const bars = [];
+                    for (let i=0;i<d.t.length;i++) bars.push({time:d.t[i],open:d.o[i],high:d.h[i],low:d.l[i],close:d.c[i],volume:d.v[i]});
+                    ok(bars,{noData:false,nextTime:d.nextTime||null});
+                } else {
+                    ok([],{noData:true,nextTime:to||null});
+                }
             } else if (d.s==="no_data") {
                 ok([],{noData:true,nextTime:d.nextTime||null});
             } else if (d.s==="error") {
                 err(d.errmsg||"Server error");
+            } else {
+                ok([],{noData:true,nextTime:to||null});
             }
         }).catch(e=>{console.error(e);err(e.message)});
     }
@@ -73,7 +79,7 @@ class UDFDatafeed {
 <div id="search-bar">
     <div id="energy-controls" style="display:none">
         <div id="zone-select-container" class="zone-scroll" data-value=""></div>
-        <select id="contract-select" class="energy-selector"><option value="Day-ahead">Day-ahead</option><option value="Intraday">Intraday</option></select>
+        <select id="contract-select" class="energy-selector" style="display:none"><option value="Day-ahead">Day-ahead</option><option value="Intraday">Intraday</option></select>
         <button id="energy-load-btn" class="load-btn">Load</button>
     </div>
     <div id="binance-controls">
@@ -84,14 +90,20 @@ class UDFDatafeed {
 <div id="chart-container"><div id="chart" style="display:none"></div><div id="no-symbol" class="placeholder"><div class="placeholder-icon">📊</div><div class="placeholder-text" id="placeholder-text">Search for a symbol</div><div class="placeholder-hint" id="placeholder-hint">BTCUSDT, ETHUSDT or DE-LU Energy</div></div></div>
 <footer id="info-bar">
     <div class="info-item"><span class="info-label">Mode</span><span class="info-value" id="info-mode">Binance</span></div>
-    <div class="info-item"><span class="info-label">Symbol</span><span class="info-value" id="info-symbol">--</span></div>
-    <div class="info-item"><span class="info-label">Res</span><select id="resolution-select"></select></div>
-    <div class="info-item"><span class="info-label">Feed</span><span class="info-value">UDF REST</span></div>
+    <div class="info-item" id="info-symbol-box"><span class="info-label">Symbol</span><span class="info-value" id="info-symbol">--</span></div>
+    <div class="info-item" id="info-res-box"><span class="info-label">Res</span><select id="resolution-select"></select></div>
+    <div class="info-item" id="info-feed-box"><span class="info-label">Feed</span><span class="info-value">UDF REST</span></div>
 </footer>
 </div>
 <script>
 const BASE="", R_CRYPTO=["1","5","15","60","240","1D","1W","1M"], R_ENERGY=["15","60","240","1D","1W","1M"];
 let chart=null,series=null,curSym=null,curRes="60",curMode="binance",df=new UDFDatafeed(BASE);
+
+function _resizeChart() {
+    if (!chart) return;
+    const c = document.getElementById("chart-container");
+    if (c.clientWidth > 0 && c.clientHeight > 0) chart.applyOptions({ width: c.clientWidth, height: c.clientHeight });
+}
 
 function setResolutions(mode) {
     const sel=document.getElementById("resolution-select"), list=mode==="energy"?R_ENERGY:R_CRYPTO;
@@ -120,20 +132,28 @@ async function init() {
 
 async function switchMode() {
     curMode=document.getElementById("mode-select").value;
-    document.getElementById("info-mode").textContent=curMode==="energy"?"ENTSO-E":"Binance";
+    document.getElementById("info-mode").textContent=curMode==="energy"?"ENTSO-E European electricity prices · EUR/MWh":"Binance";
     if (curMode==="energy") {
         curRes="60"; setResolutions("energy");
         document.getElementById("binance-controls").style.display="none";
         document.getElementById("energy-controls").style.display="flex";
+        document.getElementById("info-symbol-box").style.display="none";
+        document.getElementById("info-res-box").style.display="none";
+        document.getElementById("info-feed-box").style.display="none";
         document.getElementById("logo-mode-text").textContent="ENTSO-E"; document.getElementById("logo-mode-text").className="logo-energy";
-        document.getElementById("placeholder-text").textContent="Select a bidding zone"; document.getElementById("placeholder-hint").textContent="Try: DE-LU, France, Switzerland";
+        document.getElementById("placeholder-text").textContent="Select a bidding zone"; document.getElementById("placeholder-hint").textContent="Day-ahead prices — EUR per megawatt-hour";
         await loadEnergyZones();
+        _resizeChart();
     } else {
         curRes="60"; setResolutions("binance");
+        document.getElementById("info-symbol-box").style.display="";
+        document.getElementById("info-res-box").style.display="";
+        document.getElementById("info-feed-box").style.display="";
         document.getElementById("binance-controls").style.display="block";
         document.getElementById("energy-controls").style.display="none";
         document.getElementById("logo-mode-text").textContent="Binance"; document.getElementById("logo-mode-text").className="logo-binance";
         document.getElementById("placeholder-text").textContent="Search for a symbol"; document.getElementById("placeholder-hint").textContent="BTCUSDT, ETHUSDT, SOLUSDT";
+        _resizeChart();
     }
 }
 
@@ -155,9 +175,9 @@ async function loadEnergyZones() {
 }
 
 function loadEnergySymbol() {
-    const z=document.getElementById("zone-select-container").dataset.value, ct=document.getElementById("contract-select").value;
+    const z=document.getElementById("zone-select-container").dataset.value;
     if (!z) return;
-    loadSymbol(z+":"+(ct==="Day-ahead"?"DA":"ID"));
+    loadSymbol(z+":DA");
 }
 
 function setStatus(ok,txt) { const d=document.getElementById("connection-status"),t=document.getElementById("status-text"); d.className="status-dot "+(ok?"online":"offline"); t.textContent=txt; }
@@ -174,8 +194,12 @@ function loadSymbol(sym) {
     curSym=sym.toUpperCase(); document.getElementById("info-symbol").textContent=curSym;
     document.getElementById("no-symbol").style.display="none"; document.getElementById("chart").style.display="block";
     df.resolveSymbol(curSym,si=>{
+        const isEnergy = si.type === "energy";
+        chart.applyOptions({
+            rightPriceScale: { title: isEnergy ? "EUR/MWh" : "" }
+        });
         const to=Math.floor(Date.now()/1000);
-        df.getBars(si,curRes,{from:0,to,countBack:300,firstDataRequest:true},bars=>{series.setData(bars);chart.timeScale().fitContent()},e=>console.error(e));
+        df.getBars(si,curRes,{from:0,to,countBack:300,firstDataRequest:true},bars=>{if(bars.length>0){const safe=bars.filter(b=>b.high>0&&b.low>0&&b.high/b.low<100&&b.low/b.high<100);if(safe.length>0){series.setData(safe);chart.timeScale().fitContent();_resizeChart()}}},e=>console.error(e));
         const uid=curSym+"_"+curRes; df.unsubscribeBars(uid);
         df.subscribeBars(si,curRes,bar=>{try{series.update(bar)}catch{}},uid);
     },e=>{console.error(e);document.getElementById("no-symbol").style.display="flex";document.getElementById("no-symbol").querySelector(".placeholder-text").textContent="Not found: "+curSym});
