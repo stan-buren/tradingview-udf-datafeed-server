@@ -134,25 +134,47 @@ class EnergyAdapter:
 
         # Zones with corrupted/sparse data — excluded until data quality is fixed
         _EXCLUDED_ZONES: set[str] = {
-            "10YAL-KESH-----5",  # Albania — dots
-            "10YBA-JPCC-----D",  # Bosnia Herz. — collapses on scroll
-            "10YHR-HEP------M",  # Croatia — collapses on scroll
-            "10Y1001A1001A82H",  # DE-LU — dots
-            "10YGB----------A",  # Great Britain — dots
-            "10YIT-GRTN-----B",  # Italy North — dots
-            "10YIT-GRTN-----C",  # Italy Centre-North — dots
-            "10YIT-GRTN-----D",  # Italy Centre-South — dots
-            "10YIT-GRTN-----E",  # Italy South — dots
-            "10YIT-GRTN-----F",  # Italy Sardinia — dots
-            "10YIT-GRTN-----G",  # Italy Sicily — dots
-            "10Y1001A1001B00I",  # Kosovo — dots
-            "10YCS-CG-TSO---S",  # Montenegro — dots
-            "10YNO-2--------T",  # Norway NO2 — dots
-            "10YMK-MEPSO----8",  # North Macedonia — dots
-            "10YCS-SERBIATSOV",  # Serbia — dots
-            "10YCH-SWISSGRIDZ",  # Switzerland — dots
-            "10YUA-WEPS-----0",  # Ukraine IPS — broken
-            "10Y1001C--00003F",  # Ukraine Burshtyn — broken
+            # DE-AT-LU (both old and new codes)
+            "10Y1001A1001A82H",
+            "10Y1001A1001A63L",
+            # IE(SEM)
+            "10Y1001A1001A59C",
+            # IT — 19 bidding zones (sparse data, dots instead of candles)
+            "10Y1001A1001A66F",  # IT-GR
+            "10Y1001A1001A67D",  # IT-North-SI
+            "10Y1001A1001A68B",  # IT-North-CH
+            "10Y1001A1001A699",  # IT-Brindisi
+            "10Y1001A1001A70O",  # IT-Centre-North
+            "10Y1001A1001A71M",  # IT-Centre-South
+            "10Y1001A1001A72K",  # IT-Foggia
+            "10Y1001A1001A73I",  # IT-North
+            "10Y1001A1001A74G",  # IT-Sardinia
+            "10Y1001A1001A75E",  # IT-Sicily
+            "10Y1001A1001A76C",  # IT-Priolo
+            "10Y1001A1001A77A",  # IT-Rossano
+            "10Y1001A1001A788",  # IT-South
+            "10Y1001A1001A80L",  # IT-North-AT
+            "10Y1001A1001A81J",  # IT-North-FR
+            "10Y1001A1001A885",  # IT-SACOAC
+            "10Y1001A1001A893",  # IT-SACODC
+            "10Y1001C--00096J",  # IT-Calabria
+            # Kosovo (XK)
+            "10Y1001C--00100H",
+            # NO2NSL
+            "50Y0JVU59B4JWQCU",
+            # UA-IPS (both old and new codes)
+            "10Y1001C--000182",
+            "10YUA-WEPS-----0",
+            # Legacy codes (may still appear in older data)
+            "10YCZ-CEPS-----N",   # Czech Republic
+            "10YAL-KESH-----5",   # Albania
+            "10YBA-JPCC-----D",   # Bosnia
+            "10YHR-HEP------M",   # Croatia
+            "10YGB----------A",   # Great Britain
+            "10YCS-CG-TSO---S",   # Montenegro
+            "10YMK-MEPSO----8",   # North Macedonia
+            "10YCS-SERBIATSOV",   # Serbia
+            "10YCH-SWISSGRIDZ",   # Switzerland
         }
 
         symbols: list[EnergySymbol] = []
